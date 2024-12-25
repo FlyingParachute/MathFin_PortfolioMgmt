@@ -1,3 +1,14 @@
+# data文件夹下的文件不上传
+data/*
+
+#pdf文件不上传
+*.pdf
+
+#csv文件不上传
+*.csv
+
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
