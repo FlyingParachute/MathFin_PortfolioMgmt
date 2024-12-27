@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore")
 # =====================================================================
 
 data_path = '.\data\monthly\monthly.csv'
-method = 'prod'  # 'sum' or 'prod'
+method = 'sum'  # 'sum' or 'prod'
 monthly_raw_data = pd.read_csv(data_path)
 
 monthly_raw_data = direct_substract(monthly_raw_data)
