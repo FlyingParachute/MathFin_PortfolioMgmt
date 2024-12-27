@@ -4,6 +4,7 @@ from scipy.stats import ttest_ind, ttest_1samp
 import matplotlib.pyplot as plt
 import warnings
 from excess_ret_comp import direct_substract, calculate_cumulative_excess_returns
+from scipy.interpolate import PchipInterpolator
 warnings.filterwarnings("ignore")
 
 
@@ -17,8 +18,9 @@ monthly_raw_data = pd.read_csv(data_path)
 
 monthly_raw_data = direct_substract(monthly_raw_data)
 
-# 去除 NaN
+# 去除 NaN以及RETX为'B','C'的数据
 cleaned_data = monthly_raw_data.dropna(subset=['RETX'])
+cleaned_data = cleaned_data[~cleaned_data['RETX'].isin(['B','C'])]
 
 # 转换日期
 cleaned_data['date'] = pd.to_datetime(cleaned_data['date'])
@@ -100,6 +102,7 @@ for start_dt in portfolio_starts:
     
     # 排序，选最高35(赢家), 最低35(输家)
     portfolio_data = portfolio_data.sort_values('cum_excess_return', ascending=False)
+    portfolio_data = portfolio_data.dropna(subset=['cum_excess_return'])
     print(f"可选股票数量: {portfolio_data['PERMNO'].nunique()}")
     winner_ids = portfolio_data.head(35)['PERMNO']
     loser_ids  = portfolio_data.tail(35)['PERMNO']
@@ -290,10 +293,80 @@ print(single_ttest_df)
 
 
 # ---------- 绘制 Winner vs Loser 的平均累计超额收益曲线 (基于 ACAR) ----------
+'''
 plt.figure(figsize=(8,5))
 plt.plot(acar['t'], acar['ACAR_w'], label='Winner (ACAR)', color='blue')
 plt.plot(acar['t'], acar['ACAR_l'], label='Loser (ACAR)', color='red')
 plt.axhline(y=0, color='gray', linestyle='--', linewidth=1)
+plt.xlabel('Month (t=1..36)')
+plt.ylabel('Cumulative Excess Return')
+plt.title('Winner vs Loser - Average CAR over 36 months')
+plt.legend()
+plt.tight_layout()
+plt.show()
+'''
+#============ 1) 数据处理，让曲线从 (0,0) 出发 ============
+t_vals = acar['t'].values            # [1, 2, 3, ..., 36]
+w_vals = acar['ACAR_w'].values       # winner y值
+l_vals = acar['ACAR_l'].values       # loser y值
+
+# 在头部插入 (0,0)，让曲线从原点开始
+t_w = np.insert(t_vals, 0, 0)
+w_w = np.insert(w_vals, 0, 0)
+t_l = np.insert(t_vals, 0, 0)
+w_l = np.insert(l_vals, 0, 0)
+
+#============ 2) 使用 PchipInterpolator 构造插值函数 ============
+# 它会保证插值后的曲线恰好通过每个给定点
+pchip_w = PchipInterpolator(t_w, w_w)
+pchip_l = PchipInterpolator(t_l, w_l)
+
+#============ 3) 生成较密集的 x 值以绘制平滑曲线 ============
+# 这里以 0~36 为区间，200个点可视需要修改
+x_smooth = np.linspace(0, 36, 200)
+
+# 在这些 x_smooth 上分别计算 Winner/Loser 的插值
+w_smooth = pchip_w(x_smooth)
+l_smooth = pchip_l(x_smooth)
+
+#============ 4) 开始绘图 ============
+plt.figure(figsize=(8,5))
+
+# (a) 平滑插值曲线
+plt.plot(
+    x_smooth, w_smooth,
+    label='Winner (ACAR)',
+    color='green',
+    linewidth=2,
+    alpha=0.8
+)
+plt.plot(
+    x_smooth, l_smooth,
+    label='Loser (ACAR)',
+    color='orange',
+    linewidth=2,
+    alpha=0.8
+)
+
+# (b) 在每个整数 t 点上用三角标记，保证肉眼可见曲线“确实穿过这些点”
+plt.plot(
+    t_w, w_w,
+    marker='^', markersize=5,
+    linestyle='None',
+    color='green',
+    alpha=0.9
+)
+plt.plot(
+    t_l, w_l,
+    marker='^', markersize=5,
+    linestyle='None',
+    color='orange',
+    alpha=0.9
+)
+
+# (c) 参考线、边界等
+plt.axhline(y=0, color='gray', linestyle='--', linewidth=1)
+plt.xlim(left=0)  # 让(0,0)紧贴纵轴
 plt.xlabel('Month (t=1..36)')
 plt.ylabel('Cumulative Excess Return')
 plt.title('Winner vs Loser - Average CAR over 36 months')
