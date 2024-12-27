@@ -3,7 +3,7 @@ import numpy as np
 from scipy.stats import ttest_ind, ttest_1samp
 import matplotlib.pyplot as plt
 import warnings
-from excess_ret_comp import direct_substract
+from excess_ret_comp import direct_substract, calculate_cumulative_excess_returns
 warnings.filterwarnings("ignore")
 
 
@@ -12,6 +12,7 @@ warnings.filterwarnings("ignore")
 # =====================================================================
 
 data_path = '.\data\monthly\monthly.csv'
+method = 'prod'  # 'sum' or 'prod'
 monthly_raw_data = pd.read_csv(data_path)
 
 monthly_raw_data = direct_substract(monthly_raw_data)
@@ -34,18 +35,12 @@ print(f"符合条件的股票数量: {stocks_with_enough_data['PERMNO'].nunique(
 # = 第 2 节：计算过去36个月的滚动“复利”累积超额收益 (cum_excess_return) =
 # =====================================================================
 
-def calculate_cumulative_excess_returns(group):
-    """
-    对每只股票按日期顺序,按原文应为加和而非乘积
-    """
-    # group 已按日期排序
-    group['cum_excess_return'] = group['RETX'].rolling(window=36, min_periods=36).sum()
-    return group
+
 
 stocks_with_enough_data = (
     stocks_with_enough_data
     .groupby('PERMNO', group_keys=False)
-    .apply(calculate_cumulative_excess_returns)
+    .apply(calculate_cumulative_excess_returns, methods=method) # 用 'sum' 也可以
 )
 
 
@@ -86,12 +81,14 @@ for start_dt in portfolio_starts:
     # lookback: 过去36个月区间 [formation_date-35M, formation_date]
     lookback_end = formation_date
     lookback_start = formation_date - pd.DateOffset(months=35)
+    print(f"\n组合形成日: {formation_date.date()}，lookback区间: {lookback_start.date()} - {lookback_end.date()}")
 
     # 提取 lookback 区间的数据
     lookback_df = stocks_with_enough_data[
         (stocks_with_enough_data['date'] >= lookback_start) &
         (stocks_with_enough_data['date'] <= lookback_end)
     ].copy()
+
     if lookback_df.empty:
         # 没数据就跳过
         continue
@@ -103,11 +100,12 @@ for start_dt in portfolio_starts:
     
     # 排序，选最高35(赢家), 最低35(输家)
     portfolio_data = portfolio_data.sort_values('cum_excess_return', ascending=False)
+    print(f"可选股票数量: {portfolio_data['PERMNO'].nunique()}")
     winner_ids = portfolio_data.head(35)['PERMNO']
     loser_ids  = portfolio_data.tail(35)['PERMNO']
     
     # -------------- 日志功能：打印调仓信息 -------------
-    print("\n[调仓日期: {}]".format(formation_date.date()))
+    print("[调仓日期: {}]".format(formation_date.date()))
     print("  Winner组合股票数:", len(winner_ids))
     print("  Loser组合股票数:", len(loser_ids))
     # 如果还想查看具体股票ID，可直接打印 winner_ids.values 等
@@ -118,6 +116,7 @@ for start_dt in portfolio_starts:
     # 4.2 三年持有期 = [start_dt, start_dt+36个月 - 1天]
     hold_start = start_dt
     hold_end   = start_dt + pd.DateOffset(months=36) - pd.Timedelta(days=1)
+    print(f"持有期区间: {hold_start.date()} - {hold_end.date()}")
     
     # 赢家/输家组合 在持有期内的数据
     w_hold = stocks_with_enough_data[
@@ -142,6 +141,7 @@ for start_dt in portfolio_starts:
         continue
 
     # 4.3 每月组合收益
+    
     # 赢家组合：按月份聚合求均值
     w_monthly = w_hold.groupby('date', as_index=False)['RETX'].mean()
     w_monthly.rename(columns={'RETX':'avg_u_w'}, inplace=True)
@@ -161,12 +161,15 @@ for start_dt in portfolio_starts:
         .merge(l_monthly, on='date', how='left')
     )
     
-    # 计算累计收益 (CAR_w, CAR_l) = 对 avg_u_* 的累加/累积
+    # 计算累计收益 (CAR_w, CAR_l)
     
-    # 累加
-    merged['CAR_w'] = merged['avg_u_w'].cumsum(skipna=True)
-    merged['CAR_l'] = merged['avg_u_l'].cumsum(skipna=True)
-    
+    if method == 'sum':
+        merged['CAR_w'] = merged['avg_u_w'].cumsum(skipna=True)
+        merged['CAR_l'] = merged['avg_u_l'].cumsum(skipna=True)
+    elif method == 'prod':
+        merged['CAR_w'] = merged['avg_u_w'].add(1).cumprod().sub(1)
+        merged['CAR_l'] = merged['avg_u_l'].add(1).cumprod().sub(1)
+
     # 标注测试期起点
     merged['test_period_start'] = start_dt
     
