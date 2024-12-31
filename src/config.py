@@ -9,10 +9,10 @@ TOP_N = 35
 BOTTOM_N = 35
 
 # 向后计算累计收益的时间窗口（单位：月）
-LOOKBACK_WINDOW = 36
+LOOKBACK_WINDOW = 24
 
 # 回测间隔长度（单位：月）
-BACKTEST_INTERVAL = 36
+BACKTEST_INTERVAL = 24
 
 START_DATE = pd.Timestamp('1930-01-01')
 END_DATE   = pd.Timestamp('1975-01-01')

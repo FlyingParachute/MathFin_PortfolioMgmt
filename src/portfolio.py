@@ -62,7 +62,7 @@ def backtest(stocks_data, start_date, end_date):
         l_m = l_hold.groupby('date', as_index=False)['RETX'].mean()
         l_m.rename(columns={'RETX':'avg_u_l'}, inplace=True)
 
-        all_months = pd.date_range(hold_start, hold_end, freq='ME')
+        all_months = pd.date_range(hold_start, hold_end, freq='M')
         tmp = pd.DataFrame({'date': all_months})
         tmp = tmp.merge(w_m, on='date', how='left').merge(l_m, on='date', how='left')
 
