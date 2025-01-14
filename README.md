@@ -2,6 +2,9 @@
 
 This project is the course work for the Portfolio Management course, completed by Xingjian Zhao, Jingtong Xu, Yi Qu.
 
+
+The dataset is too large to upload on github, please get it through https://drive.google.com/drive/folders/15H3p0d_dlO1QloEIe5VKKIU5yvyoh3F0?usp=drive_link
+
 ## config.py
 
 > The global configuration file that centralizes all adjustable parameters in the project.  
