@@ -3,7 +3,7 @@ import numpy as np
 from scipy.stats import ttest_ind, ttest_1samp
 import matplotlib.pyplot as plt
 import warnings
-from excess_ret_comp import direct_substract, calculate_cumulative_excess_returns
+from excess_ret_comp import direct_substract, calculate_cumulative_excess_returns,calculate_alpha
 from scipy.interpolate import PchipInterpolator
 warnings.filterwarnings("ignore")
 
@@ -13,10 +13,10 @@ warnings.filterwarnings("ignore")
 # =====================================================================
 
 data_path = '.\data\monthly\monthly.csv'
-method = 'sum'  # 'sum' or 'prod'
+method = 'prod'  # 'sum' or 'prod'
 monthly_raw_data = pd.read_csv(data_path)
 
-monthly_raw_data = direct_substract(monthly_raw_data)
+monthly_raw_data = calculate_alpha(monthly_raw_data)
 
 # 去除 NaN以及RETX为'B','C'的数据
 cleaned_data = monthly_raw_data.dropna(subset=['RETX'])
